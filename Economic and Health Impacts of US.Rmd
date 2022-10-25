@@ -1,0 +1,324 @@
+---
+title: "Economic and Health Impacts of US Severe Weather"
+author: "Abdelrahman"
+date: "2022-09-25"
+output: html_document
+---
+
+# Synopsis
+
+In this project, we analyze the storm database taken from the U.S. National Oceanic and Atmospheric Administration (NOAA). We estimate the fatalities, injuries, property damage, and crop damage for each type of event (e.g., Flood, Typhoon, Tornado, Hail, Hurricane, etc.). Our goal is to determine which event is most harmful to US population (health) and which event has the largest economic consequences. Our analysis on Fatalities and Injuries conclude that **Tornado** is the **most harmful** event in respect to the **US Population Health**. On the other hand, based on the Property and Cost damage, we conclude that **Flood** has the **greatest economic consequences** to the US.
+
+# Introduction
+
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+# Questions
+
+The data analysis address the following questions:
+
+-   Across the United States, which types of events are most harmful with respect to population health?
+-   Across the United States, which types of events have the greatest economic consequences?
+
+# Data
+
+-   [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+-   National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+-   National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+# Data Processing
+
+```{r,echo=TRUE}
+
+#load libraries
+library(tidyr) 
+library(dplyr)
+library(readr)
+library(ggplot2)
+# To combine the different plots, in one multiplot.
+library(gridExtra)
+```
+
+```{r,echo=TRUE}
+
+# set data in your working directory
+# read data
+storm_data <- read.csv("repdata_data_StormData.csv")
+dim(storm_data)
+str(storm_data)
+head(storm_data)
+
+# check for NAs
+sum(is.na(storm_data$CROPDMGEXP))
+sum(is.na(storm_data$PROPDMGEXP))
+sum(is.na(storm_data$CROPDMG))
+sum(is.na(storm_data$PROPDMG))
+sum(is.na(storm_data$EVTYPE))
+
+```
+
+```{r,echo=TRUE}
+
+# select variable we need 
+variables <- c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")
+storm_data <-  storm_data[,(names(storm_data) %in% variables)]
+# make our events as factor
+storm_data$EVTYPE <- as.factor(storm_data$EVTYPE)
+str(storm_data)
+head(storm_data)
+
+```
+
+## Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+```{r,echo=TRUE}
+
+#  first let's look at injuries to see most affected events
+injuries<-storm_data %>% group_by(EVTYPE) %>% summarise(total=sum(INJURIES)) %>% arrange(desc(total))
+head(injuries)
+str(injuries)
+
+```
+
+you can go to [STORM DATA PREPARATION](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) to know how we choose our events labels as we see that there is typo so i 'll try to fix it to make the first high rank events more accurate.
+
+```{r,echo=TRUE}
+
+# we need to do some fix in events name
+storm_data$EVTYPE <- gsub("THUNDERSTORM WIND", "TSTM WIND", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("THUNDERSTORM WINDS", "TSTM WIND", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("TSTM WINDS", "TSTM WIND", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("HIGH WINDS", "HIGH WIND", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("ICE", "ICE STORM", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("FOG", "FREEZING FOG", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("FREEZING FREEZING FOG", "FREEZING FOG", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("DENSE FREEZING FOG", "DENSE FOG", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("HEAT WAVE", "HEAT", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("Heat Wave", "HEAT", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("EXTREME HEAT", "HEAT", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("ICE STORM STORM", "ICE STORM", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("WILD/FOREST FIRE", "WILDFIRE", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("HURRICANE", "HURRICANE/TYPHOON", storm_data$EVTYPE)
+storm_data$EVTYPE <- gsub("HURRICANE/TYPHOON/TYPHOON", "HURRICANE/TYPHOON", storm_data$EVTYPE)
+
+# after editing names of events
+storm_data$EVTYPE <- as.factor(storm_data$EVTYPE)
+
+# try it now, more better right!!
+injuries<-storm_data %>% group_by(EVTYPE) %>% summarise(total_injuries=sum(INJURIES)) %>% arrange(desc(total_injuries))
+injuries$type <- "injuries"
+injuries$type <- as.factor(injuries$type)
+str(injuries)
+head(injuries,5)
+
+# look at fatalities
+fatalities<-storm_data %>% group_by(EVTYPE) %>% summarise(total_fatalities=sum(FATALITIES)) %>% arrange(desc(total_fatalities))
+fatalities$type <- "fatalities"
+fatalities$type <- as.factor(fatalities$type)
+str(fatalities)
+head(fatalities,5)
+
+```
+
+all what i did above is just to make sure to correct right events name that have most damages om health. now i want to Summarize Multiple Variables & Group by One Variable. i 'll summarize INJURIES and FATALITIES by events in one table to make it easy to see difference between them in one plot.
+
+```{r,echo=TRUE}
+
+injwithfatal <- aggregate(cbind(INJURIES,FATALITIES) ~ EVTYPE, data = storm_data , FUN = sum)
+str(injwithfatal)
+
+# get top 10 injuries events
+top10_by_injureis <- subset(injwithfatal, INJURIES > quantile(INJURIES, prob = 0.99))
+head(top10_by_injureis)
+
+# get top 10 fatalities events
+top10_by_fatalities <- subset(injwithfatal, FATALITIES > quantile(FATALITIES, prob = 0.99))
+head(top10_by_fatalities)
+
+```
+
+now we want to sum injuries and fatalities by event type so i can make a plot to total injuries.
+
+```{r,echo=TRUE}
+
+storm_data <-  mutate(storm_data,total_impact=INJURIES + FATALITIES)
+health_impact <- storm_data %>% group_by(EVTYPE) %>% summarise(total_health_impacts=sum(total_impact)) %>% arrange(desc(total_health_impacts))
+str(health_impact)
+head(health_impact)
+
+```
+
+## Across the United States, which types of events have the greatest economic consequences?
+
+Both exponents are converted to uppercase to adapt all the exponents with the same meaning (eg. h and H). The next steps convert the exponents into corresponding factors: - "","?","+","-": 1 -"0": 1 - "1": 10 - "2": 100 - "3": 1.000 - "4": 10.000 - "5": 100.000 - "6": 1.000.000 - "7": 10.000.000 - "8": 100.000.000 - "H": 100 - "K": 1.000 - "M": 1.000.000 - "B": 1.000.000.000
+
+According to the previous tables, the CROPDMGEXP only contains a subset of these values. Most of the numerical exponents are missing. The factor is only calculated for the exponents provided in that variable.
+
+```{r,echo=TRUE}
+
+table(storm_data$PROPDMGEXP)
+table(storm_data$CROPDMGEXP)
+
+
+# create new variable CROPFACTOR
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP==""] <- 0
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="?"] <- 0
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="0"] <- 10^0
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="2"] <- 10^2
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="k"] <- 10^3
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="K"] <- 10^3
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="m"] <- 10^6
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="M"] <- 10^6
+storm_data$CROPFACTOR[storm_data$CROPDMGEXP=="B"] <- 10^9
+
+# create new variable PROPFACTOR
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP==""] <- 0
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="?"] <- 0
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="-"] <- 0
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="+"] <- 10^0
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="0"] <- 10^0
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="1"] <- 10^1
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="2"] <- 10^2
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="3"] <- 10^3
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="4"] <- 10^4
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="5"] <- 10^5
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="6"] <- 10^6
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="7"] <- 10^7
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="8"] <- 10^8
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="H"] <- 10^2
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="h"] <- 10^2
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="K"] <- 10^3
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="m"] <- 10^6
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="M"] <- 10^6
+storm_data$PROPFACTOR[storm_data$PROPDMGEXP=="B"] <- 10^9
+
+str(storm_data)
+head(storm_data)
+
+```
+
+let's mow get economic cost by (PROPDMG \* PROPFACTOR + CROPDMG \* CROPFACTOR)
+
+```{r,echo=TRUE}
+
+storm_data <-  mutate(storm_data,ECONOMICCOST = PROPDMG * PROPFACTOR + CROPDMG * CROPFACTOR)
+economic_cost <- storm_data %>% group_by(EVTYPE) %>% summarise(total_economic_cost=sum(ECONOMICCOST)) %>% arrange(desc(total_economic_cost))
+str(economic_cost)
+head(economic_cost,10)
+
+```
+
+# Result
+
+## Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+plot HEALTH IMPACT,Creates a list that contains 3 plots, the components of the multiplot.
+
+```{r,echo=TRUE}
+
+library(reshape2)
+#use melt fun()
+Health_Consequences_by_injuries <- melt(top10_by_injureis, id.vars = "EVTYPE", variable.name = "Fatalities_or_Injuries")
+head(Health_Consequences_by_injuries)
+
+Health_Consequences_by_fatalities <- melt(top10_by_fatalities, id.vars = "EVTYPE", variable.name = "Fatalities_or_Injuries")
+head(Health_Consequences_by_injuries)
+
+```
+
+we create list that contain 3 plot, [ have Top 10 Injuries Per Event,Top 10 Fatalities Per Event,Total Health Impacts by Event].
+
+```{r,echo=TRUE}
+
+
+components_of_the_multiplot <- list(
+      
+
+      "left" = ggplot(Health_Consequences_by_injuries,aes(x=reorder(EVTYPE,-value),y=value))+
+                                       geom_col(aes(fill = Fatalities_or_Injuries))+
+                                       xlab("Event Types")+
+                                       ylab("Value")+
+                                       ggtitle("Top 10 Injuries Per Event")+
+                                       theme(axis.text.x = element_text(angle=30, hjust=1)),
+
+                                 
+
+      "Right" = ggplot(Health_Consequences_by_fatalities,aes(x=reorder(EVTYPE,-value),y=value))+
+                                        geom_col(aes(fill = Fatalities_or_Injuries))+
+                                        xlab("Event Types")+
+                                        ylab("Value")+
+                                        ggtitle("Top 10 Fatalities Per Event")+
+                                        theme(axis.text.x = element_text(angle=45, hjust=1))
+                                  
+
+                                 
+
+)
+
+
+multiplot <- grid.arrange(grobs = components_of_the_multiplot,ncol=1,nrow=2)
+
+
+
+```
+
+BETTER VIEW!!
+
+```{r,echo=TRUE}
+
+
+I <-  ggplot(Health_Consequences_by_injuries,aes(x=reorder(EVTYPE,-value),y=value))+
+                                       geom_col(aes(fill = Fatalities_or_Injuries))+
+                                       xlab("Event Types")+
+                                       ylab("Value")+
+                                       ggtitle("Top 10 Injuries Per Event")+
+                                       theme(axis.text.x = element_text(angle=30, hjust=1))
+print(I)
+
+                                 
+
+f <-  ggplot(Health_Consequences_by_fatalities,aes(x=reorder(EVTYPE,-value),y=value))+
+                                        geom_col(aes(fill = Fatalities_or_Injuries))+
+                                        xlab("Event Types")+
+                                        ylab("Value")+
+                                        ggtitle("Top 10 Fatalities Per Event")+
+                                        theme(axis.text.x = element_text(angle=45, hjust=1))
+
+print(f)
+                                  
+
+```
+
+```{r,echo=TRUE}
+
+
+     h <- ggplot(health_impact[1:10,],aes(x=reorder(EVTYPE,-total_health_impacts),y=total_health_impacts))+
+                                     geom_col(aes(fill='color'))+
+                                     xlab("Event Types")+
+                                     ylab("Total Health Impacts")+
+                                     ggtitle("Total Health Impacts by Event")+
+                                     theme(axis.text.x = element_text(angle=30, hjust=1))
+
+print(h)
+
+```
+
+## Across the United States, which types of events have the greatest economic consequences?
+
+plot ECONOMIC COST
+
+```{r,echo=TRUE}
+
+g <-  ggplot(economic_cost[1:10,],aes(x=reorder(EVTYPE,-total_economic_cost),y=total_economic_cost))+
+            geom_col()+
+            xlab("Event Types")+
+            ylab("Economic Cost")+
+            ggtitle("Total Economic Cost For Events")+
+            theme(axis.text.x = element_text(angle=30, hjust=1))
+print(g) 
+
+```
